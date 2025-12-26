@@ -29,7 +29,7 @@ const modelsData = [
           {
             id: 1,
             inputImage: 'Воин в доспехах',
-            previewImage: '/benchmarks/images/test-image.jpg',
+            previewImage: '/benchmarks/images/fff.png',
             metrics: { geometry: 8, textures: 7, accuracy: 9, completeness: 8 },
             totalTeapots: 32,
             resultCount: 3
