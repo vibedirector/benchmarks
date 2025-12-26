@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
 
 // Данные для демонстрации
 const modelsData = [
@@ -535,14 +536,14 @@ const TeapotScale = ({ value, max = 10, showLabel = false }) => {
 };
 
 // Карточка модели для главной
-const ModelCard = ({ model, onClick }) => {
+const ModelCard = ({ model }) => {
   const style = materialStyles[model.material];
 
   return (
-    <div
-      onClick={onClick}
+    <Link
+      to={`/model/${model.id}`}
       className={`
-        relative p-6 rounded-2xl cursor-pointer group
+        relative p-6 rounded-2xl cursor-pointer group block
         transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1
         ${model.status === 'deprecated' ? 'opacity-60' : ''}
       `}
@@ -597,7 +598,7 @@ const ModelCard = ({ model, onClick }) => {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 
@@ -712,12 +713,13 @@ const ImageCell = ({ hasImage, type, onClick, size = 'small' }) => {
 };
 
 // Детали теста (модальное окно / развёрнутый вид)
-const TestDetails = ({ test, isMulti, onClose, currentModel, allModels, onNavigateToTest }) => {
+const TestDetails = ({ test, isMulti, onClose, currentModel }) => {
   const [lightbox, setLightbox] = useState(null);
   const [showOtherModels, setShowOtherModels] = useState(false);
+  const navigate = useNavigate();
 
   // Находим модели, у которых есть такой же тест того же типа (single/multi)
-  const otherModelsWithTest = allModels.filter(model => {
+  const otherModelsWithTest = modelsData.filter(model => {
     if (model.id === currentModel.id) return false;
 
     // Ищем тест с таким же inputImage только в том же типе (single или multi)
@@ -729,6 +731,18 @@ const TestDetails = ({ test, isMulti, onClose, currentModel, allModels, onNaviga
     }
     return false;
   });
+
+  // Навигация к тесту в другой модели
+  const handleNavigateToTest = (model, testInputImage, testIsMulti) => {
+    for (const [catKey, category] of Object.entries(model.categories)) {
+      const testsOfType = testIsMulti ? (category.multi || []) : (category.single || []);
+      if (testsOfType.find(t => t.inputImage === testInputImage)) {
+        navigate(`/model/${model.id}/${catKey}`);
+        onClose();
+        return;
+      }
+    }
+  };
 
   // Формируем массивы для отображения
   const inputImages = isMulti
@@ -896,7 +910,7 @@ const TestDetails = ({ test, isMulti, onClose, currentModel, allModels, onNaviga
                 {otherModelsWithTest.map(model => (
                   <button
                     key={model.id}
-                    onClick={() => onNavigateToTest(model, test.inputImage, isMulti)}
+                    onClick={() => handleNavigateToTest(model, test.inputImage, isMulti)}
                     className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2"
                   >
                     <span>{model.logo}</span>
@@ -957,32 +971,31 @@ const MultiImageIcon = ({ className = "w-4 h-4" }) => (
 );
 
 // Страница модели
-const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, onBack, allModels, onNavigateToTest }) => {
+const ModelPage = () => {
+  const { modelId, category: initialCategory } = useParams();
+  const navigate = useNavigate();
   const tabsRef = React.useRef(null);
 
-  // Находим начальный тип таба (single или multi)
-  const getInitialTabType = () => {
-    if (initialTestType) return initialTestType;
-    if (!initialTestName || !initialCategory) return 'single';
-    const category = model.categories[initialCategory];
-    if (category?.single?.find(t => t.inputImage === initialTestName)) return 'single';
-    if (category?.multi?.find(t => t.inputImage === initialTestName)) return 'multi';
-    return 'single';
-  };
+  // Находим модель по ID
+  const model = modelsData.find(m => m.id === modelId);
 
-  // Находим начальный тест для открытия
-  const findInitialTest = () => {
-    if (!initialTestName || !initialCategory) return null;
-    const category = model.categories[initialCategory];
-    const tabType = getInitialTabType();
-    return category?.[tabType]?.find(t => t.inputImage === initialTestName) || null;
-  };
+  // Если модель не найдена
+  if (!model) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Модель не найдена</h1>
+          <Link to="/" className="text-blue-400 hover:text-blue-300">← Вернуться на главную</Link>
+        </div>
+      </div>
+    );
+  }
 
   const [activeTab, setActiveTab] = useState({
     category: initialCategory || 'characters',
-    type: getInitialTabType()
+    type: 'single'
   });
-  const [selectedTest, setSelectedTest] = useState(findInitialTest());
+  const [selectedTest, setSelectedTest] = useState(null);
   const style = materialStyles[model.material];
   const categories = Object.entries(model.categories);
 
@@ -994,6 +1007,13 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
       }, 100);
     }
   }, [initialCategory]);
+
+  // Обновляем activeTab при изменении category в URL
+  React.useEffect(() => {
+    if (initialCategory && model.categories[initialCategory]) {
+      setActiveTab(prev => ({ ...prev, category: initialCategory }));
+    }
+  }, [initialCategory, model.categories]);
 
   // Генерируем табы: для каждой категории — single и multi
   const tabs = [];
@@ -1009,12 +1029,12 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
   return (
     <div className="min-h-screen p-6">
       {/* Кнопка назад */}
-      <button
-        onClick={onBack}
-        className="mb-6 text-gray-400 hover:text-white transition-colors flex items-center gap-2"
+      <Link
+        to="/"
+        className="mb-6 text-gray-400 hover:text-white transition-colors flex items-center gap-2 inline-block"
       >
         ← Назад к моделям
-      </button>
+      </Link>
 
       {/* Шапка */}
       <div className="p-6 rounded-2xl mb-6"
@@ -1118,8 +1138,6 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
           isMulti={activeTab.type === 'multi'}
           onClose={() => setSelectedTest(null)}
           currentModel={model}
-          allModels={allModels}
-          onNavigateToTest={onNavigateToTest}
         />
       )}
     </div>
@@ -1144,7 +1162,7 @@ const getCategoryAverage = (model, categoryKey) => {
 };
 
 // Ячейка с оценкой категории
-const CategoryScoreCell = ({ model, categoryKey, onNavigate, isRowHovered }) => {
+const CategoryScoreCell = ({ model, categoryKey, isRowHovered }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTooltipHovered, setIsTooltipHovered] = useState(false);
   const score = getCategoryAverage(model, categoryKey);
@@ -1152,11 +1170,6 @@ const CategoryScoreCell = ({ model, categoryKey, onNavigate, isRowHovered }) => 
   if (!score) {
     return <span className="text-gray-600">—</span>;
   }
-
-  const handleClick = (e) => {
-    e.stopPropagation();
-    onNavigate(model, categoryKey);
-  };
 
   const showTooltip = isRowHovered || isHovered || isTooltipHovered;
 
@@ -1166,14 +1179,16 @@ const CategoryScoreCell = ({ model, categoryKey, onNavigate, isRowHovered }) => 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span
+      <Link
+        to={`/model/${model.id}/${categoryKey}`}
         className="text-gray-300 cursor-pointer hover:text-white hover:underline transition-colors"
-        onClick={handleClick}
+        onClick={(e) => e.stopPropagation()}
       >
         {score}
-      </span>
+      </Link>
       {showTooltip && (
-        <span
+        <Link
+          to={`/model/${model.id}/${categoryKey}`}
           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs bg-gray-800 text-gray-300 rounded whitespace-nowrap cursor-pointer z-50"
           style={{
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -1181,24 +1196,25 @@ const CategoryScoreCell = ({ model, categoryKey, onNavigate, isRowHovered }) => 
             color: isTooltipHovered ? '#fff' : '#d1d5db',
             transition: 'background-color 0.15s, color 0.15s'
           }}
-          onClick={handleClick}
+          onClick={(e) => e.stopPropagation()}
           onMouseEnter={() => setIsTooltipHovered(true)}
           onMouseLeave={() => setIsTooltipHovered(false)}
         >
           Подробнее
-        </span>
+        </Link>
       )}
     </span>
   );
 };
 
 // Строка таблицы с состоянием ховера
-const TableRow = ({ model, onSelectModel, onNavigateToCategory }) => {
+const TableRow = ({ model }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <tr
-      onClick={() => onSelectModel(model)}
+      onClick={() => navigate(`/model/${model.id}`)}
       className="border-b border-white/5 cursor-pointer transition-all duration-300 relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -1224,7 +1240,6 @@ const TableRow = ({ model, onSelectModel, onNavigateToCategory }) => {
         <CategoryScoreCell
           model={model}
           categoryKey="characters"
-          onNavigate={onNavigateToCategory}
           isRowHovered={isHovered}
         />
       </td>
@@ -1232,7 +1247,6 @@ const TableRow = ({ model, onSelectModel, onNavigateToCategory }) => {
         <CategoryScoreCell
           model={model}
           categoryKey="hardSurface"
-          onNavigate={onNavigateToCategory}
           isRowHovered={isHovered}
         />
       </td>
@@ -1240,7 +1254,6 @@ const TableRow = ({ model, onSelectModel, onNavigateToCategory }) => {
         <CategoryScoreCell
           model={model}
           categoryKey="organic"
-          onNavigate={onNavigateToCategory}
           isRowHovered={isHovered}
         />
       </td>
@@ -1258,7 +1271,7 @@ const TableRow = ({ model, onSelectModel, onNavigateToCategory }) => {
 };
 
 // Сводная таблица
-const SummaryTable = ({ models, onSelectModel, onNavigateToCategory }) => {
+const SummaryTable = ({ models }) => {
   const [sortBy, setSortBy] = useState('totalTeapots');
   const [sortDir, setSortDir] = useState('desc');
 
@@ -1329,8 +1342,6 @@ const SummaryTable = ({ models, onSelectModel, onNavigateToCategory }) => {
             <TableRow
               key={model.id}
               model={model}
-              onSelectModel={onSelectModel}
-              onNavigateToCategory={onNavigateToCategory}
             />
           ))}
         </tbody>
@@ -1339,91 +1350,48 @@ const SummaryTable = ({ models, onSelectModel, onNavigateToCategory }) => {
   );
 };
 
-// Главный компонент
-export default function App() {
-  const [view, setView] = useState('home'); // 'home' | 'model' | 'table'
-  const [selectedModel, setSelectedModel] = useState(null);
-  const [initialCategory, setInitialCategory] = useState(null);
-  const [initialTestName, setInitialTestName] = useState(null);
-  const [initialTestType, setInitialTestType] = useState(null);
+// Компонент главной страницы
+const HomePage = () => {
+  const [view, setView] = useState('home'); // 'home' | 'table'
   const [showDeprecated, setShowDeprecated] = useState(false);
 
   const filteredModels = showDeprecated
     ? modelsData
     : modelsData.filter(m => m.status !== 'deprecated');
 
-  const handleSelectModel = (model) => {
-    setSelectedModel(model);
-    setInitialCategory(null);
-    setInitialTestName(null);
-    setInitialTestType(null);
-    setView('model');
-  };
-
-  const handleNavigateToCategory = (model, categoryKey) => {
-    setSelectedModel(model);
-    setInitialCategory(categoryKey);
-    setInitialTestName(null);
-    setInitialTestType(null);
-    setView('model');
-  };
-
-  const handleNavigateToTest = (model, testInputImage, isMulti) => {
-    // Находим категорию, где находится этот тест нужного типа
-    for (const [catKey, category] of Object.entries(model.categories)) {
-      const testsOfType = isMulti ? (category.multi || []) : (category.single || []);
-      const foundTest = testsOfType.find(t => t.inputImage === testInputImage);
-      if (foundTest) {
-        setSelectedModel(model);
-        setInitialCategory(catKey);
-        setInitialTestName(testInputImage);
-        setInitialTestType(isMulti ? 'multi' : 'single');
-        setView('model');
-        return;
-      }
-    }
-  };
-
   return (
-    <div className="min-h-screen text-gray-100"
-         style={{
-           background: 'linear-gradient(135deg, #0f0f12 0%, #1a1a22 50%, #0f0f12 100%)',
-           fontFamily: "'Space Grotesk', sans-serif"
-         }}>
-
+    <>
       {/* Шапка сайта */}
-      {view !== 'model' && (
-        <header className="p-6 border-b border-white/10">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">🫖</span>
-              <div>
-                <h1 className="text-2xl font-bold text-white">3D AI Benchmark</h1>
-                <p className="text-sm text-gray-500">Image-to-3D модели</p>
-              </div>
+      <header className="p-6 border-b border-white/10">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <span className="text-4xl">🫖</span>
+            <div>
+              <h1 className="text-2xl font-bold text-white">3D AI Benchmark</h1>
+              <p className="text-sm text-gray-500">Image-to-3D модели</p>
             </div>
+          </Link>
 
-            <nav className="flex items-center gap-4">
-              <button
-                onClick={() => setView('home')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  view === 'home' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Модели
-              </button>
-              <button
-                onClick={() => setView('table')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  view === 'table' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Таблица
-              </button>
-            </nav>
-          </div>
-        </header>
-      )}
+          <nav className="flex items-center gap-4">
+            <button
+              onClick={() => setView('home')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                view === 'home' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Модели
+            </button>
+            <button
+              onClick={() => setView('table')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                view === 'table' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Таблица
+            </button>
+          </nav>
+        </div>
+      </header>
 
       <main className="max-w-6xl mx-auto">
         {/* Главная - карточки моделей */}
@@ -1448,30 +1416,10 @@ export default function App() {
                 <ModelCard
                   key={model.id}
                   model={model}
-                  onClick={() => handleSelectModel(model)}
                 />
               ))}
             </div>
           </div>
-        )}
-
-        {/* Страница модели */}
-        {view === 'model' && selectedModel && (
-          <ModelPage
-            key={selectedModel.id + (initialTestName || '')}
-            model={selectedModel}
-            initialCategory={initialCategory}
-            initialTestName={initialTestName}
-            initialTestType={initialTestType}
-            onBack={() => {
-              setView('home');
-              setInitialCategory(null);
-              setInitialTestName(null);
-              setInitialTestType(null);
-            }}
-            allModels={modelsData}
-            onNavigateToTest={handleNavigateToTest}
-          />
         )}
 
         {/* Сводная таблица */}
@@ -1496,13 +1444,37 @@ export default function App() {
                  }}>
               <SummaryTable
                 models={filteredModels}
-                onSelectModel={handleSelectModel}
-                onNavigateToCategory={handleNavigateToCategory}
               />
             </div>
           </div>
         )}
       </main>
-    </div>
+    </>
+  );
+};
+
+// Обёртка с общими стилями
+const Layout = ({ children }) => (
+  <div className="min-h-screen text-gray-100"
+       style={{
+         background: 'linear-gradient(135deg, #0f0f12 0%, #1a1a22 50%, #0f0f12 100%)',
+         fontFamily: "'Space Grotesk', sans-serif"
+       }}>
+    {children}
+  </div>
+);
+
+// Главный компонент
+export default function App() {
+  return (
+    <BrowserRouter basename="/benchmarks">
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/model/:modelId" element={<ModelPage />} />
+          <Route path="/model/:modelId/:category" element={<ModelPage />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
   );
 }
