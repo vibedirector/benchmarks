@@ -1013,7 +1013,7 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
         onClick={onBack}
         className="mb-6 text-gray-400 hover:text-white transition-colors flex items-center gap-2"
       >
-        ← Вернуться к списку
+        ← Назад к моделям
       </button>
 
       {/* Шапка */}
@@ -1396,7 +1396,7 @@ export default function App() {
             <div className="flex items-center gap-3">
               <span className="text-4xl">🫖</span>
               <div>
-                <h1 className="text-2xl font-bold text-white">3D AI Benchmark by VibeDirector</h1>
+                <h1 className="text-2xl font-bold text-white">3D AI Benchmark</h1>
                 <p className="text-sm text-gray-500">Image-to-3D модели</p>
               </div>
             </div>
