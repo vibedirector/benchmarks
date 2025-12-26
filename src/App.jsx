@@ -1056,6 +1056,8 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
                 📅 Тест: {model.lastTested}
               </span>
               <a href={model.website}
+                 target="_blank"
+                 rel="noopener noreferrer"
                  className="px-3 py-1.5 rounded-lg bg-white/5 text-blue-400 hover:text-blue-300">
                 🔗 Официальный сайт
               </a>
