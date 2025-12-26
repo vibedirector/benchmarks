@@ -1013,7 +1013,7 @@ const ModelPage = ({ model, initialCategory, initialTestName, initialTestType, o
         onClick={onBack}
         className="mb-6 text-gray-400 hover:text-white transition-colors flex items-center gap-2"
       >
-        ← Назад к моделям
+        ← Вернуться к списку
       </button>
 
       {/* Шапка */}
