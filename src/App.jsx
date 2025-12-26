@@ -29,6 +29,7 @@ const modelsData = [
           {
             id: 1,
             inputImage: 'Воин в доспехах',
+            previewImage: '/benchmarks/images/fff.png',
             metrics: { geometry: 8, textures: 7, accuracy: 9, completeness: 8 },
             totalTeapots: 32,
             resultCount: 3
@@ -613,7 +614,11 @@ const TestPreviewCard = ({ test, isMulti, onClick }) => {
     >
       <div className="aspect-square rounded-lg mb-3 flex items-center justify-center text-4xl relative overflow-hidden"
            style={{ background: 'linear-gradient(135deg, #2a2a30 0%, #1a1a1f 100%)' }}>
-        🖼️
+        {test.previewImage ? (
+          <img src={test.previewImage} alt={test.inputImage} className="w-full h-full object-cover" />
+        ) : (
+          '🖼️'
+        )}
         {isMulti && (
           <span className="absolute top-2 right-2 text-xs bg-white/10 text-gray-300 px-1.5 py-0.5 rounded">
             ×{test.inputCount}
